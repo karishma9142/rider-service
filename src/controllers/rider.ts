@@ -35,8 +35,8 @@ export const addRiderProfile = TryCatch(async (req : AuthenticatedRequest , res)
         }
     );
 
-    const {phoneNumber ,aadharNumber , drivingLicenseNumber,lattitude,longitude} = req.body;
-    if(!phoneNumber || !aadharNumber || !drivingLicenseNumber || lattitude === undefined || longitude === undefined){
+    const {phoneNumber ,aadharNumber , drivingLicenseNumber,latitude,longitude} = req.body;
+    if(!phoneNumber || !aadharNumber || !drivingLicenseNumber || latitude === undefined || longitude === undefined){
         return res.status(400).json({
             msg : "All fields are requrid"
         })
@@ -58,7 +58,7 @@ export const addRiderProfile = TryCatch(async (req : AuthenticatedRequest , res)
         drivingLicenseNumber,
         location : {
             type : 'Point',
-            coordinates : [longitude , lattitude]
+            coordinates : [longitude , latitude]
         },
         isAvailble : false,
         isVerified : false
@@ -97,14 +97,14 @@ export const toggleRiderAvailablity = TryCatch(async(req : AuthenticatedRequest 
             msg : "Only riders can create rider profile"
         })
     }
-    const {isAvailble , lattitude , longitude} = req.body;
+    const {isAvailble , latitude , longitude} = req.body;
     if(typeof isAvailble !== 'boolean'){
         return res.status(400).json({
             msg : "isAvailabe must be boolean"
         });
     }
 
-    if(lattitude === undefined || longitude === undefined){
+    if(latitude === undefined || longitude === undefined){
         return res.status(400).json({
             msg : "locatione is requrid"
         });
@@ -125,7 +125,7 @@ export const toggleRiderAvailablity = TryCatch(async(req : AuthenticatedRequest 
     rider.isAvailble = isAvailble;
     rider.location = {
         type : 'Point',
-        coordinates : [longitude , lattitude]
+        coordinates : [longitude , latitude]
     };
     rider.lastActive = new Date();
     await rider.save();
@@ -133,4 +133,126 @@ export const toggleRiderAvailablity = TryCatch(async(req : AuthenticatedRequest 
         msg : isAvailble ? 'Rider is now online' : 'Rider is now offline',
         rider
     });
+});
+
+export const acceptOrder = TryCatch(async(req:AuthenticatedRequest,res) => {
+    const riderUserId = req.user?._id.toString();
+    const {orderId} = req.params;
+
+    if(!riderUserId) {
+        return res.status(400).json({
+            message : "Please login"
+        })
+    }
+
+    const rider = await Rider.findOne({userId : riderUserId, isAvailble :true});
+
+    if(!rider){
+        return res.status(404).json({
+            message : "rider not found"
+        })
+    }
+
+    try {
+        const data = await axios.put(`${process.env.RESTAURANT_SERVER}/api/order/assign/rider` , 
+           {
+            orderId ,
+            riderId : rider._id.toString(),
+            riderUserId : rider.userId,
+            riderName : rider.pictuer,
+            riderPhone : rider.phoneNumber
+           },{
+            headers : {
+                'x-internal-key' : process.env.INTERNAL_SERVICE_KAY
+            }
+           }
+        );
+
+        if(data.data.success){
+            const riderDetails = await Rider.findOneAndUpdate({
+                userId : riderUserId.toString(),
+                isAvailble : true,
+            } , {isAvailble : false} , {nwe : true})
+
+            res.json({
+                message : 'order accepted'
+            })
+        }
+    } catch (error) {
+        res.status(400).json({
+            message : "order already taken"
+        })
+    }
+
+});
+
+export const fetchMyCurrentOrder = TryCatch(async(req:AuthenticatedRequest,res) => {
+    const riderUserId = req.user?._id.toString();
+
+    if(!riderUserId){
+        return res.status(400).json({
+            message : "please login"
+        })
+    }
+
+    const rider = await Rider.findOne({userId : riderUserId, isAvailble :true});
+
+    if(!rider){
+        return res.status(404).json({
+            message : "rider not found"
+        })
+    }
+
+    try {
+        const data = await axios.get(`${process.env.RESTAURANT_SERVER}/api/order/current/rider?riderId=${rider._id}` , {
+            headers : {
+                'x-internal-key' : process.env.INTERNAL_SERVICE_KAY
+            }
+        });
+        res.json({
+            order : data
+        })
+    } catch (error) {
+        res.status(500).json({
+            message : "internal server error"
+        })
+    }
+});
+
+export const updateOrderStatus = TryCatch(async(req:AuthenticatedRequest,res) => {
+    const userId = req.user?._id;
+
+    if(!userId){
+        return res.status(401).json({
+            message : "Please login"
+        })
+    }
+
+    const rider = await Rider.findOne({userId:userId.toString()});
+
+    if(!rider){
+        return res.status(404).json({
+            message : "please log in"
+        })
+    }
+
+    const {orderId} = req.params;
+
+    try {
+        const data = await axios.put(`${process.env.RESTAURANT_SERVER}/api/order/update/rider` , {
+            orderId
+        } , {
+            headers : {
+                'x-internal-key' : process.env.INTERNAL_SERVICE_KAY
+            }
+        });
+
+        res.json({
+            message : data.data.message
+        })
+    } catch (error) {
+        res.status(500).json({
+            message : "internal server error"
+        })
+    }
 })
