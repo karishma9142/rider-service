@@ -11,6 +11,10 @@ export const connectRabbitMq = async () => {
         durable : true
     })
 
+    await channel.assertQueue(process.env.ORDER_READY_QUEUE!, {
+        durable : true
+    })
+
     console.log('connected to rabitmq(rider)');
 }
 

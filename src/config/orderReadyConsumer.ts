@@ -47,7 +47,7 @@ export const startOrderReadyConsumer = async() => {
                 console.log(`notifying rider userId : ${rider.userId}`);
 
                 try {
-                    await axios.post(`${process.env.REALTIME_SERVER}/api/internal/emit` , {
+                    await axios.post(`${process.env.REALTIME_SERVER}/api/v1/internal/emit` , {
                         event : 'order:available',
                         room:`user:${rider.userId}`,
                         payload : {orderId , restaurantId}

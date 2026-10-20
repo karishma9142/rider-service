@@ -212,9 +212,11 @@ export const fetchMyCurrentOrder = TryCatch(async(req:AuthenticatedRequest,res) 
         res.json({
             order : data
         })
-    } catch (error) {
+    } catch (error:any) {
+        console.log(error.message)
         res.status(500).json({
-            message : "internal server error"
+            message : "internal server error",
+            error : error.message
         })
     }
 });
