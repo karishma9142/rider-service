@@ -171,7 +171,7 @@ export const acceptOrder = TryCatch(async(req:AuthenticatedRequest,res) => {
         if(data.data.success){
             const riderDetails = await Rider.findOneAndUpdate({
                 userId : riderUserId.toString(),
-                isAvailble : true,
+                isVerified : true,
             } , {isAvailble : false} , {nwe : true})
 
             res.json({
@@ -195,7 +195,7 @@ export const fetchMyCurrentOrder = TryCatch(async(req:AuthenticatedRequest,res) 
         })
     }
 
-    const rider = await Rider.findOne({userId : riderUserId, isAvailble :true});
+    const rider = await Rider.findOne({userId : riderUserId, isVerified :true});
 
     if(!rider){
         return res.status(404).json({
@@ -210,15 +210,18 @@ export const fetchMyCurrentOrder = TryCatch(async(req:AuthenticatedRequest,res) 
             }
         });
         res.json({
-            order : data
+            order : data.data.order ?? null
         })
-    } catch (error:any) {
-        console.log(error.message)
-        res.status(500).json({
-            message : "internal server error",
-            error : error.message
-        })
+    } catch (error) {
+    if (axios.isAxiosError(error)) {
+        console.error("Message:", error.message);
+        console.error("URL:", error.config?.url);
+        console.error("Status:", error.response?.status);
+        console.error("Response:", error.response?.data);
+    } else {
+        console.error(error);
     }
+}
 });
 
 export const updateOrderStatus = TryCatch(async(req:AuthenticatedRequest,res) => {
@@ -241,7 +244,7 @@ export const updateOrderStatus = TryCatch(async(req:AuthenticatedRequest,res) =>
     const {orderId} = req.params;
 
     try {
-        const data = await axios.put(`${process.env.RESTAURANT_SERVER}/api/order/update/rider` , {
+        const data = await axios.put(`${process.env.RESTAURANT_SERVER}/api/order/update/status/rider` , {
             orderId
         } , {
             headers : {
@@ -252,7 +255,8 @@ export const updateOrderStatus = TryCatch(async(req:AuthenticatedRequest,res) =>
         res.json({
             message : data.data.message
         })
-    } catch (error) {
+    } catch (error:any) {
+        console.log(error)
         res.status(500).json({
             message : "internal server error"
         })
